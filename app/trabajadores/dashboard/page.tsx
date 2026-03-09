@@ -164,7 +164,7 @@ export default function DashboardTrabajador() {
         </div>
 
         <div className="flex items-center gap-6">
-          <div className="rounded-full bg-white/70 backdrop-blur-sm px-5 py-2.5 shadow-sm text-gray-700 font-medium">
+          <div className="rounded-full bg-white/95 backdrop-blur-sm px-5 py-2.5 shadow-sm text-gray-700 font-medium">
             {fechaDisplay} — {horaDisplay}
           </div>
 
@@ -179,7 +179,7 @@ export default function DashboardTrabajador() {
         <div className="rounded-2xl bg-white/80 backdrop-blur-md p-6 shadow-xl border border-gray-200/50 transition-all hover:shadow-2xl">
           <h2 className="mb-4 text-lg font-semibold text-gray-800">Registro de Ingreso</h2>
           <div className="flex flex-wrap items-center gap-4">
-            <div className="flex-1 rounded-lg bg-gray-100 px-5 py-3 text-center font-mono text-lg">
+            <div className="flex-1 rounded-lg bg-gray-50 px-5 py-3 text-center font-mono text-lg text-slate-900">
               {horaIngreso || "— — : — —"}
             </div>
             <button
@@ -194,7 +194,7 @@ export default function DashboardTrabajador() {
         <div className="rounded-2xl bg-white/80 backdrop-blur-md p-6 shadow-xl border border-gray-200/50 transition-all hover:shadow-2xl">
           <h2 className="mb-4 text-lg font-semibold text-gray-800">Registro de Salida</h2>
           <div className="flex flex-wrap items-center gap-4">
-            <div className="flex-1 rounded-lg bg-gray-100 px-5 py-3 text-center font-mono text-lg">
+            <div className="flex-1 rounded-lg bg-gray-50 px-5 py-3 text-center font-mono text-lg text-slate-900">
               {horaSalida || "— — : — —"}
             </div>
             <button
@@ -224,7 +224,7 @@ export default function DashboardTrabajador() {
             <select
               value={currentMonth}
               onChange={(e) => setCurrentMonth(Number(e.target.value))}
-              className="rounded-lg bg-white px-4 py-2 border border-gray-300"
+              className="rounded-lg bg-white px-4 py-2 border border-gray-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {meses.map((mes) => (
                 <option key={mes.value} value={mes.value}>
@@ -236,7 +236,7 @@ export default function DashboardTrabajador() {
             <select
               value={currentYear}
               onChange={(e) => setCurrentYear(Number(e.target.value))}
-              className="rounded-lg bg-white px-4 py-2 border border-gray-300"
+              className="rounded-lg bg-white px-4 py-2 border border-gray-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {años.map((año) => (
                 <option key={año} value={año}>
@@ -262,7 +262,7 @@ export default function DashboardTrabajador() {
               max={diasEnMes}
               value={selectedDay || ""}
               onChange={(e) => setSelectedDay(Number(e.target.value) || null)}
-              className="w-20 rounded-lg bg-white px-3 py-2 border border-gray-300"
+              className="w-20 rounded-lg bg-white px-3 py-2 border border-gray-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Día"
             />
           </div>
@@ -290,9 +290,8 @@ export default function DashboardTrabajador() {
             return (
               <div
                 key={dia}
-                className={`group relative min-h-[100px] rounded-2xl p-3 text-left text-sm transition-all hover:scale-[1.03] hover:shadow-xl ${
-                  evento ? evento.color : "bg-gray-50/70 border border-gray-200"
-                } shadow-sm ${isSelected ? "ring-4 ring-blue-500" : ""}`}
+                className={`group relative min-h-[100px] rounded-2xl p-3 text-left text-sm transition-all hover:scale-[1.03] hover:shadow-xl ${evento ? evento.color : "bg-gray-50/70 border border-gray-200"
+                  } shadow-sm ${isSelected ? "ring-4 ring-blue-500" : ""}`}
               >
                 <div className="font-bold text-gray-800">{dia}</div>
 
@@ -304,7 +303,7 @@ export default function DashboardTrabajador() {
                 )}
 
                 {evento && (
-                  <div className="mt-2 rounded-lg bg-white/60 px-2.5 py-1.5 text-xs font-medium shadow-inner backdrop-blur-sm">
+                  <div className="mt-2 rounded-lg bg-white/95 px-2.5 py-1.5 text-xs font-medium shadow-inner border border-gray-200 text-slate-950">
                     {evento.emoji} {evento.title}
                   </div>
                 )}
