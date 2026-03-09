@@ -1,6 +1,6 @@
 // app/api/login/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase/client';  // ajusta la ruta si no usas @/
+import { supabaseServer } from '@/lib/supabase/client';  // ← usa el server client
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,18 +13,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Tu query actual (adaptada a Supabase client)
-    const { data, error } = await supabase
+    const { data, error } = await supabaseServer
       .from('trabajadores')
       .select('*')
-      .eq('dni', usuario)           // asumiendo que "usuario" es el DNI
-      .eq('password', password)     // ¡OJO! Nunca guardes passwords en plano – usa hashing
-      .single();                    // .single() en vez de LIMIT 1
+      .eq('dni', usuario)
+      .eq('password', password)
+      .single();
 
     if (error) {
       console.error('Error en Supabase:', error);
       return NextResponse.json(
-        { success: false, error: 'Error en servidor' },
+        { success: false, error: error.message || 'Error en servidor' },
         { status: 500 }
       );
     }
