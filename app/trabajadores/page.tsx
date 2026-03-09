@@ -11,10 +11,8 @@ export default function LoginTrabajadores() {
   const router = useRouter();
 
   const iniciarSesion = async () => {
-
     try {
-
-      const res = await fetch("http://localhost:4000/login", {
+      const res = await fetch("/api/login", {     // ← ¡Cambia esto!
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -24,28 +22,19 @@ export default function LoginTrabajadores() {
           password
         })
       });
-
+  
       const data = await res.json();
-
+  
       if (data.success) {
-
         localStorage.setItem("usuario", JSON.stringify(data.usuario));
-
         router.push("/trabajadores/dashboard");
-
       } else {
-
         alert("Usuario o contraseña incorrectos");
-
       }
-
     } catch (error) {
-
       console.error(error);
       alert("Error conectando con el servidor");
-
     }
-
   };
 
   return (
