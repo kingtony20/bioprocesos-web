@@ -1,46 +1,67 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function DashboardTrabajador() {
-  const [horaIngreso, setHoraIngreso] = useState("");
-  const [horaSalida, setHoraSalida] = useState("");
+  const router = useRouter();
+
   const [fechaDisplay, setFechaDisplay] = useState("Cargando...");
   const [horaDisplay, setHoraDisplay] = useState("— : — —");
-  const [mesAnoDisplay, setMesAnoDisplay] = useState("CARGANDO...");
   const [registros, setRegistros] = useState<Record<string, { ingreso?: string; salida?: string }>>({});
 
-  // Zona horaria fija para Perú
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  // Zona horaria y locale
   const TIMEZONE_PERU = "America/Lima";
   const LOCALE = "es-PE";
+  const hoy = new Date().toISOString().split("T")[0];
 
-  // Estado para navegación del calendario
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1); // 1-12
-  const [selectedDay, setSelectedDay] = useState<number | null>(null); // Para resaltar día específico
+  // Protección de ruta
+  useEffect(() => {
+    if (!localStorage.getItem("usuario")) {
+      router.push("/trabajadores");
+    }
+  }, [router]);
 
-  // Datos de ejemplo (actualizados a 2026 como en tu código)
-  const eventosEjemplo: Record<string, { title: string; color: string; emoji?: string }> = {
-    "2026-02-07": { title: "Kick off de trimestre", color: "bg-green-400/90", emoji: "🚀" },
-    "2026-02-09": { title: "Reunión con MX", color: "bg-orange-400/90", emoji: "🟠" },
-    "2026-02-12": { title: "Viaje a HQ", color: "bg-blue-400/90", emoji: "✈️" },
-    "2026-02-13": { title: "Viaje a HQ", color: "bg-blue-400/90", emoji: "✈️" },
-    "2026-02-17": { title: "Cena de equipo", color: "bg-amber-400/90", emoji: "🍽️" },
-    "2026-02-18": { title: "Cita neurólogo", color: "bg-purple-400/90", emoji: "🧠" },
-    "2026-02-22": { title: "Entrevistas con candidatas", color: "bg-yellow-300/90", emoji: "👩‍💼" },
-    "2026-02-23": { title: "Entrevistas con candidatas", color: "bg-yellow-300/90", emoji: "👩‍💼" },
-    "2026-02-24": { title: "Reunión para contrataciones", color: "bg-emerald-400/90", emoji: "🤝" },
-    "2026-02-27": { title: "Preparar reporte", color: "bg-gray-700 text-white", emoji: "📊" },
-    "2026-03-03": { title: "Vacaciones", color: "bg-teal-400/90", emoji: "🏖️" },
-    "2026-03-04": { title: "Vacaciones", color: "bg-teal-400/90", emoji: "🏖️" },
-    "2026-03-05": { title: "Vacaciones", color: "bg-teal-400/90", emoji: "🏖️" },
-  };
+  // Cargar asistencias al montar
+  useEffect(() => {
+    const cargarAsistencias = async () => {
+      const usuarioStr = localStorage.getItem("usuario");
+      if (!usuarioStr) return;
 
+      const usuario = JSON.parse(usuarioStr);
+      if (!usuario?.id) return;
+
+      try {
+        const res = await fetch(`/api/asistencias?trabajador_id=${usuario.id}`);
+        const data = await res.json();
+
+        if (data.success) {
+          const registrosFormateados: Record<string, { ingreso?: string; salida?: string }> = {};
+
+          data.asistencias.forEach((a: any) => {
+            registrosFormateados[a.fecha] = {
+              ingreso: a.hora_ingreso,
+              salida: a.hora_salida,
+            };
+          });
+
+          setRegistros(registrosFormateados);
+        }
+      } catch (err) {
+        console.error("Error al cargar asistencias:", err);
+      }
+    };
+
+    cargarAsistencias();
+  }, []);
+
+  // Reloj en tiempo real
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
 
-      // Fecha completa (ej: "domingo 9 de marzo")
       setFechaDisplay(
         now.toLocaleDateString(LOCALE, {
           weekday: "long",
@@ -50,7 +71,6 @@ export default function DashboardTrabajador() {
         })
       );
 
-      // Hora actual en formato 24h (puedes cambiar a hour12: true para 12h)
       setHoraDisplay(
         now.toLocaleTimeString(LOCALE, {
           hour: "2-digit",
@@ -59,58 +79,108 @@ export default function DashboardTrabajador() {
           timeZone: TIMEZONE_PERU,
         })
       );
-
-      // Mes y año para el título del calendario (ej: "MARZO 2026")
-      setMesAnoDisplay(
-        now.toLocaleDateString(LOCALE, {
-          month: "long",
-          year: "numeric",
-          timeZone: TIMEZONE_PERU,
-        }).toUpperCase()
-      );
     };
 
-    updateTime(); // Ejecutar inmediatamente
+    updateTime();
     const timer = setInterval(updateTime, 1000);
-
     return () => clearInterval(timer);
   }, []);
 
-  const marcarIngreso = () => {
-    const now = new Date();
-    const hora = now.toLocaleTimeString(LOCALE, {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-      timeZone: TIMEZONE_PERU,
-    });
-    const fecha = now.toLocaleDateString(LOCALE, { timeZone: TIMEZONE_PERU });
+  // Toast auto-desaparece
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
-    setHoraIngreso(hora);
-    setRegistros((prev) => ({
-      ...prev,
-      [fecha]: { ...prev[fecha], ingreso: hora },
-    }));
+  const marcarIngreso = async () => {
+    if (registros[hoy]?.ingreso) return;
+
+    const usuario = JSON.parse(localStorage.getItem("usuario") || "{}");
+    if (!usuario.id) return;
+
+    try {
+      const res = await fetch("/api/marcar-ingreso", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trabajador_id: usuario.id }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        const { fecha, hora_ingreso } = data.registro;
+        setRegistros((prev) => ({
+          ...prev,
+          [fecha]: { ...(prev[fecha] || {}), ingreso: hora_ingreso },
+        }));
+        setToast({ message: "¡Ingreso registrado correctamente! 🌅", type: "success" });
+      } else {
+        setToast({
+          message: data.error || "No pudimos registrar el ingreso. Inténtalo de nuevo.",
+          type: "error",
+        });
+      }
+    } catch (err) {
+      setToast({
+        message: "Problema de conexión. Verifica tu internet e inténtalo otra vez.",
+        type: "error",
+      });
+    }
   };
 
-  const marcarSalida = () => {
-    const now = new Date();
-    const hora = now.toLocaleTimeString(LOCALE, {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-      timeZone: TIMEZONE_PERU,
-    });
-    const fecha = now.toLocaleDateString(LOCALE, { timeZone: TIMEZONE_PERU });
+  const marcarSalida = async () => {
+    if (registros[hoy]?.salida) return;
+    if (!registros[hoy]?.ingreso) {
+      setToast({ message: "Primero debes marcar el ingreso del día", type: "error" });
+      return;
+    }
 
-    setHoraSalida(hora);
-    setRegistros((prev) => ({
-      ...prev,
-      [fecha]: { ...prev[fecha], salida: hora },
-    }));
+    const usuario = JSON.parse(localStorage.getItem("usuario") || "{}");
+    if (!usuario.id) return;
+
+    try {
+      const res = await fetch("/api/marcar-salida", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trabajador_id: usuario.id }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        const { fecha, hora_salida } = data.registro;
+        setRegistros((prev) => ({
+          ...prev,
+          [fecha]: { ...(prev[fecha] || {}), salida: hora_salida },
+        }));
+        setToast({ message: "¡Salida registrada! Buen trabajo hoy 👏", type: "success" });
+      } else {
+        setToast({
+          message: data.error || "Hubo un problema al registrar la salida.",
+          type: "error",
+        });
+      }
+    } catch (err) {
+      setToast({
+        message: "Problema de conexión. Verifica tu internet e inténtalo otra vez.",
+        type: "error",
+      });
+    }
   };
 
-  // Funciones de navegación
+  const cerrarSesion = () => {
+    localStorage.removeItem("usuario");
+    router.push("/trabajadores");
+  };
+
+  // ── Calendario ────────────────────────────────────────────────────────
+
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+
   const prevMonth = () => {
     if (currentMonth === 1) {
       setCurrentMonth(12);
@@ -131,22 +201,19 @@ export default function DashboardTrabajador() {
     setSelectedDay(null);
   };
 
-  // Generar meses y años para selects
   const meses = Array.from({ length: 12 }, (_, i) => ({
     value: i + 1,
     label: new Date(2000, i, 1).toLocaleDateString(LOCALE, { month: "long" }),
   }));
 
-  const años = Array.from({ length: 20 }, (_, i) => currentYear - 10 + i); // ±10 años alrededor del actual
+  const años = Array.from({ length: 21 }, (_, i) => currentYear - 10 + i);
 
-  // Generar días del mes seleccionado
   const primerDia = new Date(currentYear, currentMonth - 1, 1);
   const diasEnMes = new Date(currentYear, currentMonth, 0).getDate();
-  const diaSemanaInicio = (primerDia.getDay() + 6) % 7 + 1; // Ajuste para Lun-Dom (1=Lun, 7=Dom)
+  const diaSemanaInicio = ((primerDia.getDay() + 6) % 7) + 1; // lunes = 1
   const dias = Array.from({ length: diasEnMes }, (_, i) => i + 1);
   const celdasVaciasInicio = Array(diaSemanaInicio - 1).fill(null);
 
-  // Actualizar título del calendario basado en selección
   const calendarTitle = new Date(currentYear, currentMonth - 1, 1).toLocaleDateString(LOCALE, {
     month: "long",
     year: "numeric",
@@ -154,7 +221,7 @@ export default function DashboardTrabajador() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 p-6 md:p-10">
-      {/* Header moderno */}
+      {/* Header */}
       <header className="mb-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
           <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
@@ -168,63 +235,90 @@ export default function DashboardTrabajador() {
             {fechaDisplay} — {horaDisplay}
           </div>
 
+          <button
+            onClick={cerrarSesion}
+            className="rounded-xl bg-red-500 px-4 py-2 text-white font-semibold shadow hover:bg-red-600"
+          >
+            Cerrar sesión
+          </button>
+
           <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md">
             AJ
           </div>
         </div>
       </header>
 
-      {/* Sección de Registro de Horas */}
+      {/* Toast */}
+      {toast && (
+        <div className="fixed top-6 right-6 z-50 max-w-sm">
+          <div
+            className={`rounded-xl px-6 py-4 shadow-2xl text-white font-medium flex items-center gap-3 ${toast.type === "success" ? "bg-emerald-600" : "bg-rose-600"
+              }`}
+          >
+            {toast.type === "success" ? "✅" : "⚠️"}
+            <span>{toast.message}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Registro de horas */}
       <section className="mb-12 grid gap-6 md:grid-cols-2">
-        <div className="rounded-2xl bg-white/80 backdrop-blur-md p-6 shadow-xl border border-gray-200/50 transition-all hover:shadow-2xl">
+        <div className="rounded-2xl bg-white/80 backdrop-blur-md p-6 shadow-xl border border-gray-200/50">
           <h2 className="mb-4 text-lg font-semibold text-gray-800">Registro de Ingreso</h2>
           <div className="flex flex-wrap items-center gap-4">
-            <div className="flex-1 rounded-lg bg-gray-50 px-5 py-3 text-center font-mono text-lg text-slate-900">
-              {horaIngreso || "— — : — —"}
+            <div className="flex-1 rounded-lg bg-gray-50 px-5 py-3 text-center font-mono text-lg text-slate-900 min-w-[140px]">
+              {registros[hoy]?.ingreso || "— — : — —"}
             </div>
             <button
               onClick={marcarIngreso}
-              className="rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 px-8 py-3 font-semibold text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl active:scale-100"
+              disabled={!!registros[hoy]?.ingreso}
+              className={`rounded-xl px-8 py-3 font-semibold text-white shadow-lg transition-all ${registros[hoy]?.ingreso
+                ? "bg-gray-400 cursor-not-allowed opacity-70"
+                : "bg-gradient-to-r from-green-500 to-emerald-600 hover:scale-105 hover:shadow-xl active:scale-100"
+                }`}
             >
-              MARCAR INGRESO
+              {registros[hoy]?.ingreso ? "INGRESO YA MARCADO" : "MARCAR INGRESO"}
             </button>
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white/80 backdrop-blur-md p-6 shadow-xl border border-gray-200/50 transition-all hover:shadow-2xl">
+        <div className="rounded-2xl bg-white/80 backdrop-blur-md p-6 shadow-xl border border-gray-200/50">
           <h2 className="mb-4 text-lg font-semibold text-gray-800">Registro de Salida</h2>
           <div className="flex flex-wrap items-center gap-4">
-            <div className="flex-1 rounded-lg bg-gray-50 px-5 py-3 text-center font-mono text-lg text-slate-900">
-              {horaSalida || "— — : — —"}
+            <div className="flex-1 rounded-lg bg-gray-50 px-5 py-3 text-center font-mono text-lg text-slate-900 min-w-[140px]">
+              {registros[hoy]?.salida || "— — : — —"}
             </div>
             <button
               onClick={marcarSalida}
-              className="rounded-xl bg-gradient-to-r from-red-500 to-rose-600 px-8 py-3 font-semibold text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl active:scale-100"
+              disabled={!!registros[hoy]?.salida}
+              className={`rounded-xl px-8 py-3 font-semibold text-white shadow-lg transition-all ${registros[hoy]?.salida
+                ? "bg-gray-400 cursor-not-allowed opacity-70"
+                : "bg-gradient-to-r from-red-500 to-rose-600 hover:scale-105 hover:shadow-xl active:scale-100"
+                }`}
             >
-              MARCAR SALIDA
+              {registros[hoy]?.salida ? "SALIDA YA MARCADA" : "MARCAR SALIDA"}
             </button>
           </div>
         </div>
       </section>
 
-      {/* Calendario con navegación y filtros */}
+      {/* Calendario – solo datos reales */}
       <section className="rounded-3xl bg-white/70 backdrop-blur-md p-6 md:p-8 shadow-2xl border border-gray-200/50">
-        {/* Controles de navegación y filtros */}
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <h2 className="text-2xl font-bold text-gray-800">{calendarTitle}</h2>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <button
               onClick={prevMonth}
               className="rounded-lg bg-gray-200 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-300"
             >
-              &lt; Anterior
+              ← Anterior
             </button>
 
             <select
               value={currentMonth}
               onChange={(e) => setCurrentMonth(Number(e.target.value))}
-              className="rounded-lg bg-white px-4 py-2 border border-gray-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="rounded-lg bg-white px-4 py-2 border border-gray-300 text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {meses.map((mes) => (
                 <option key={mes.value} value={mes.value}>
@@ -236,7 +330,7 @@ export default function DashboardTrabajador() {
             <select
               value={currentYear}
               onChange={(e) => setCurrentYear(Number(e.target.value))}
-              className="rounded-lg bg-white px-4 py-2 border border-gray-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="rounded-lg bg-white px-4 py-2 border border-gray-300 text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {años.map((año) => (
                 <option key={año} value={año}>
@@ -249,22 +343,8 @@ export default function DashboardTrabajador() {
               onClick={nextMonth}
               className="rounded-lg bg-gray-200 px-4 py-2 font-semibold text-gray-700 hover:bg-gray-300"
             >
-              Siguiente &gt;
+              Siguiente →
             </button>
-          </div>
-
-          {/* Filtro por día específico (resalta el día) */}
-          <div className="flex items-center gap-2">
-            <label className="font-medium text-gray-700">Buscar día:</label>
-            <input
-              type="number"
-              min={1}
-              max={diasEnMes}
-              value={selectedDay || ""}
-              onChange={(e) => setSelectedDay(Number(e.target.value) || null)}
-              className="w-20 rounded-lg bg-white px-3 py-2 border border-gray-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Día"
-            />
           </div>
         </div>
 
@@ -284,33 +364,44 @@ export default function DashboardTrabajador() {
           {dias.map((dia) => {
             const fechaKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
             const registro = registros[fechaKey];
-            const evento = eventosEjemplo[fechaKey];
-            const isSelected = selectedDay === dia;
+
+            // Lógica de color de fondo según estado del día
+            let bgClass = "bg-gray-50/70 border border-gray-200"; // por defecto
+
+            if (registro?.ingreso && registro?.salida) {
+              bgClass = "bg-teal-100/70 border-teal-200";     // día completo (ingreso + salida)
+            } else if (registro?.ingreso) {
+              bgClass = "bg-green-100/70 border-green-200";   // solo ingreso
+            } else if (registro?.salida) {
+              bgClass = "bg-orange-100/70 border-orange-200"; // solo salida (raro por tu lógica)
+            }
 
             return (
               <div
                 key={dia}
-                className={`group relative min-h-[100px] rounded-2xl p-3 text-left text-sm transition-all hover:scale-[1.03] hover:shadow-xl ${evento ? evento.color : "bg-gray-50/70 border border-gray-200"
-                  } shadow-sm ${isSelected ? "ring-4 ring-blue-500" : ""}`}
+                className={`
+            min-h-[100px] rounded-2xl p-3 text-left text-sm shadow-sm
+            transition-all hover:shadow-md
+            ${bgClass}
+            ${selectedDay === dia ? "ring-2 ring-blue-400" : ""}
+          `}
               >
-                <div className="font-bold text-gray-800">{dia}</div>
+                <div className="font-bold text-gray-800 mb-1">{dia}</div>
 
                 {registro && (
-                  <div className="mt-1 text-xs">
-                    {registro.ingreso && <div className="text-green-700">🟢 {registro.ingreso}</div>}
-                    {registro.salida && <div className="text-red-700">🔴 {registro.salida}</div>}
-                  </div>
-                )}
-
-                {evento && (
-                  <div className="mt-2 rounded-lg bg-white/95 px-2.5 py-1.5 text-xs font-medium shadow-inner border border-gray-200 text-slate-950">
-                    {evento.emoji} {evento.title}
-                  </div>
-                )}
-
-                {evento && (
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-                    <span className="text-lg font-bold text-white drop-shadow-md">{evento.title}</span>
+                  <div className="text-xs space-y-1.5">
+                    {registro.ingreso && (
+                      <div className="flex items-center gap-1.5 text-green-700 font-medium">
+                        <span className="text-base">🟢</span>
+                        <span>{registro.ingreso}</span>
+                      </div>
+                    )}
+                    {registro.salida && (
+                      <div className="flex items-center gap-1.5 text-red-700 font-medium">
+                        <span className="text-base">🔴</span>
+                        <span>{registro.salida}</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
