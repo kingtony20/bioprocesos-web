@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 export default function LoginGerente() {
   const router = useRouter();
-  const [usuario, setUsuario] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,10 +17,10 @@ export default function LoginGerente() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/login", {
+      const res = await fetch("/api/gerente/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ usuario: usuario.trim(), password: password.trim() }),
+        body: JSON.stringify({ email: email.trim(), password: password.trim() }),
       });
 
       const data = await res.json();
@@ -46,7 +46,7 @@ export default function LoginGerente() {
       <div className="w-full max-w-md">
         {/* Logo y título */}
         <div className="text-center mb-10">
-          <div className="mx-auto h-20 w-20 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg mb-4">
+          <div className="mx-auto h-20 w-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg mb-4">
             <img src="/img/logo.png" alt="Logo" className="h-14 w-14" />
           </div>
           <h1 className="text-3xl font-bold text-gray-800">Bio Procesos Industriales</h1>
@@ -57,16 +57,16 @@ export default function LoginGerente() {
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/50 p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="usuario" className="block text-sm font-medium text-gray-700 mb-1">
-                Usuario / DNI / Email
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Email
               </label>
               <input
-                id="usuario"
-                type="text"
-                value={usuario}
-                onChange={(e) => setUsuario(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Ej: 12345678"
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Ej: gerente@empresa.com"
                 required
               />
             </div>
@@ -80,7 +80,7 @@ export default function LoginGerente() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="••••••••"
                 required
               />
@@ -95,9 +95,8 @@ export default function LoginGerente() {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3.5 font-semibold text-white shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl active:scale-100 ${
-                loading ? "opacity-70 cursor-not-allowed" : ""
-              }`}
+              className={`w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3.5 font-semibold text-white shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl active:scale-100 ${loading ? "opacity-70 cursor-not-allowed" : ""
+                }`}
             >
               {loading ? "Ingresando..." : "Iniciar Sesión"}
             </button>

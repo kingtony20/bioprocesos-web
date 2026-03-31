@@ -1,16 +1,13 @@
-// app/api/trabajadores/route.ts
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/client";   // ajusta la ruta si es diferente
 
 export async function GET() {
   try {
+    // Mantener compatibilidad: este endpoint devuelve activos (lista principal)
     const { data, error } = await supabaseServer
       .from("trabajadores")
-      .select(`
-        id,
-        dni,
-        nombre
-      `)
+      .select("id,dni,nombre,apellido,cargo,area,activo")
+      .eq("activo", true)
       .order("nombre", { ascending: true });
 
     if (error) {

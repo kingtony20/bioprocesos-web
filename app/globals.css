@@ -59,3 +59,25 @@ html {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+input[type="date"] {
+  color: #111827; /* gray-900 */
+}
+
+input[type="date"]::-webkit-datetime-edit {
+  color: #111827; /* texto */
+}
+
+input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+  color: #111827;
+}
+
+input[type="date"]::-webkit-datetime-edit-text {
+  color: #111827;
+}
+
+input[type="date"]::-webkit-datetime-edit-month-field,
+input[type="date"]::-webkit-datetime-edit-day-field,
+input[type="date"]::-webkit-datetime-edit-year-field {
+  color: #111827;
+}
