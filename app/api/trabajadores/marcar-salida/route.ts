@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase/client";
+import { NextResponse, NextRequest } from "next/server";
+import db from "@/lib/db";
 
 const TIMEZONE_PERU = "America/Lima";
 
-function fechaHoyPeruISO() {
+function fechaHoy() {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: TIMEZONE_PERU,
     year: "numeric",
@@ -12,7 +12,7 @@ function fechaHoyPeruISO() {
   }).format(new Date());
 }
 
-function horaPeruHHmm() {
+function horaActual() {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: TIMEZONE_PERU,
     hour: "2-digit",
@@ -24,43 +24,47 @@ function horaPeruHHmm() {
 export async function POST(request: NextRequest) {
   try {
     const { trabajador_id } = await request.json();
+    const id = Number(trabajador_id);
 
-    const trabajadorId = Number(trabajador_id);
-    if (!Number.isFinite(trabajadorId) || trabajadorId <= 0) {
+    if (!id) {
       return NextResponse.json({ success: false, error: "Falta trabajador_id" }, { status: 400 });
     }
 
-    const hoy = fechaHoyPeruISO();
-    const hora = horaPeruHHmm();
+    const hoy = fechaHoy();
+    const hora = horaActual();
 
-    // Verificar que existe ingreso hoy
-    const { data: registro, error: errFind } = await supabaseServer
-      .from("asistencias")
-      .select("id, hora_salida")
-      .eq("trabajador_id", trabajadorId)
-      .eq("fecha", hoy)
-      .maybeSingle();
+    const registro = db.prepare(`
+      SELECT id, hora_salida FROM asistencias
+      WHERE trabajador_id = ? AND fecha = ?
+    `).get(id, hoy);
 
-    if (errFind) throw errFind;
     if (!registro) {
-      return NextResponse.json({ success: false, error: "No has marcado ingreso hoy" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "No has marcado ingreso hoy" },
+        { status: 400 }
+      );
     }
+
     if (registro.hora_salida) {
-      return NextResponse.json({ success: false, error: "Ya marcaste salida hoy" }, { status: 409 });
+      return NextResponse.json(
+        { success: false, error: "Ya marcaste salida hoy" },
+        { status: 409 }
+      );
     }
 
-    const { data, error } = await supabaseServer
-      .from("asistencias")
-      .update({ hora_salida: hora })
-      .eq("id", registro.id)
-      .select()
-      .single();
+    db.prepare(`
+      UPDATE asistencias
+      SET hora_salida = ?
+      WHERE id = ?
+    `).run(hora, registro.id);
 
-    if (error) throw error;
+    return NextResponse.json({
+      success: true,
+      registro: { ...registro, hora_salida: hora }
+    });
 
-    return NextResponse.json({ success: true, registro: data });
   } catch (err) {
-    console.error("Error marcar salida:", err);
+    console.error(err);
     return NextResponse.json({ success: false, error: "Error al registrar salida" }, { status: 500 });
   }
 }

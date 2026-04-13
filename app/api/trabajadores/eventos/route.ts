@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase/client";
+import db from "@/lib/db";
 
 export async function GET(request: NextRequest) {
   try {
@@ -7,23 +7,28 @@ export async function GET(request: NextRequest) {
     const trabajador_id = searchParams.get("trabajador_id");
 
     if (!trabajador_id) {
-      return NextResponse.json({ success: false, error: "Falta trabajador_id" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Falta trabajador_id" },
+        { status: 400 }
+      );
     }
 
-    const { data, error } = await supabaseServer
-      .from("eventos")
-      .select("*")
-      .eq("trabajador_id", parseInt(trabajador_id))
-      .order("fecha_inicio", { ascending: true });
-
-    if (error) throw error;
+    const eventos = db.prepare(`
+      SELECT * FROM eventos
+      WHERE trabajador_id = ?
+      ORDER BY fecha_inicio ASC
+    `).all(Number(trabajador_id));
 
     return NextResponse.json({
       success: true,
-      eventos: data || [],
+      eventos
     });
+
   } catch (err) {
-    console.error("Error al obtener eventos:", err);
-    return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });
+    console.error(err);
+    return NextResponse.json(
+      { success: false, error: "Error interno" },
+      { status: 500 }
+    );
   }
 }

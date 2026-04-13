@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase/client";
+import { NextResponse, NextRequest } from "next/server";
+import db from "@/lib/db";
 
 const TIMEZONE_PERU = "America/Lima";
 
-function fechaHoyPeruISO() {
+function fechaHoy() {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: TIMEZONE_PERU,
     year: "numeric",
@@ -12,7 +12,7 @@ function fechaHoyPeruISO() {
   }).format(new Date());
 }
 
-function horaPeruHHmm() {
+function horaActual() {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: TIMEZONE_PERU,
     hour: "2-digit",
@@ -24,22 +24,19 @@ function horaPeruHHmm() {
 export async function POST(request: NextRequest) {
   try {
     const { trabajador_id } = await request.json();
+    const id = Number(trabajador_id);
 
-    const trabajadorId = Number(trabajador_id);
-    if (!Number.isFinite(trabajadorId) || trabajadorId <= 0) {
+    if (!id) {
       return NextResponse.json({ success: false, error: "Falta trabajador_id" }, { status: 400 });
     }
 
-    const hoy = fechaHoyPeruISO();
-    const hora = horaPeruHHmm();
+    const hoy = fechaHoy();
+    const hora = horaActual();
 
-    // Primero verifica si ya existe registro hoy
-    const { data: existe } = await supabaseServer
-      .from("asistencias")
-      .select("id")
-      .eq("trabajador_id", trabajadorId)
-      .eq("fecha", hoy)
-      .maybeSingle();
+    const existe = db.prepare(`
+      SELECT id FROM asistencias
+      WHERE trabajador_id = ? AND fecha = ?
+    `).get(id, hoy);
 
     if (existe) {
       return NextResponse.json(
@@ -48,17 +45,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data, error } = await supabaseServer
-      .from("asistencias")
-      .insert({ trabajador_id: trabajadorId, fecha: hoy, hora_ingreso: hora })
-      .select()
-      .single();
+    const result = db.prepare(`
+      INSERT INTO asistencias (trabajador_id, fecha, hora_ingreso)
+      VALUES (?, ?, ?)
+    `).run(id, hoy, hora);
 
-    if (error) throw error;
+    return NextResponse.json({
+      success: true,
+      registro: { id: result.lastInsertRowid, trabajador_id: id, fecha: hoy, hora_ingreso: hora }
+    });
 
-    return NextResponse.json({ success: true, registro: data });
   } catch (err) {
-    console.error("Error marcar ingreso:", err);
+    console.error(err);
     return NextResponse.json({ success: false, error: "Error al registrar ingreso" }, { status: 500 });
   }
 }

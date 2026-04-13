@@ -1,9 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase/client";
+import { NextResponse, NextRequest } from "next/server";
+import db from "@/lib/db";
 import bcrypt from "bcryptjs";
 
 function pareceHashBcrypt(valor: string) {
-  // Hash bcrypt típico: $2a$10$...
   return typeof valor === "string" && /^\$2[aby]\$\d{2}\$/.test(valor);
 }
 
@@ -16,27 +15,17 @@ export async function POST(request: NextRequest) {
 
     if (!usuario || !password) {
       return NextResponse.json(
-        { success: false, error: "Faltan usuario o contraseña" },
+        { success: false, error: "Faltan credenciales" },
         { status: 400 }
       );
     }
 
-    // Buscar usuario por DNI (solo los campos necesarios)
-    const { data, error } = await supabaseServer
-      .from("trabajadores")
-      .select("id, dni, nombre, apellido, cargo, area, activo, password")
-      .eq("dni", usuario)
-      .maybeSingle();
+    const data = db.prepare(`
+      SELECT id, dni, nombre, apellido, cargo, area, activo, password
+      FROM trabajadores
+      WHERE dni = ?
+    `).get(usuario);
 
-    if (error) {
-      console.error("Error al consultar trabajador:", error.message);
-      return NextResponse.json(
-        { success: false, error: "Error al validar credenciales" },
-        { status: 500 }
-      );
-    }
-
-    // Usuario no existe
     if (!data) {
       return NextResponse.json(
         { success: false, error: "Usuario no encontrado" },
@@ -44,16 +33,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (data.activo === false) {
+    if (data.activo === 0) {
       return NextResponse.json(
         { success: false, error: "Usuario inactivo" },
         { status: 401 }
       );
     }
 
-    // Compatibilidad: si la contraseña en BD está hasheada, usamos bcrypt.
-    // Si está en texto plano (común al inicio), comparamos directo.
     const passwordBD = data.password ?? "";
+
     const passwordCorrecta = pareceHashBcrypt(passwordBD)
       ? await bcrypt.compare(password, passwordBD)
       : password === passwordBD;
@@ -65,19 +53,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Eliminar el campo password del objeto que se devuelve
     const { password: _, ...usuarioSeguro } = data;
 
-    // Login exitoso - devolvemos datos sin contraseña
     return NextResponse.json({
       success: true,
       usuario: usuarioSeguro
     });
 
   } catch (err) {
-    console.error("Error en login:", err);
+    console.error(err);
     return NextResponse.json(
-      { success: false, error: "Error interno del servidor" },
+      { success: false, error: "Error interno" },
       { status: 500 }
     );
   }
